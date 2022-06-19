@@ -1,0 +1,16 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:paddingLeft="16dp"
+android:paddingRight="16dp"
+android:orientation="horizontal"
+android:gravity="center">
+
+    <Button
+        android:id="@+id/button_load_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Load an image" />
+
+
+</LinearLayout>
