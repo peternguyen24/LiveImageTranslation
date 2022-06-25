@@ -25,12 +25,17 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.objects.DetectedObject;
+import com.google.mlkit.vision.objects.ObjectDetection;
+import com.google.mlkit.vision.objects.ObjectDetector;
+import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions;
 import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
 import java.io.IOException;
+import java.util.List;
 
 public class ImageViewerFragment extends Fragment {
     public static final String TAG = "ImageViewerFragment";
@@ -40,6 +45,8 @@ public class ImageViewerFragment extends Fragment {
     private Bitmap imageBitmap;
     private Bitmap displayedBitmap;
 
+    private ObjectDetector objectDetector;
+
     public ImageViewerFragment(Uri imageUri) {
         this.imageUri = imageUri;
     }
@@ -47,6 +54,14 @@ public class ImageViewerFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Multiple object detection in static images
+        ObjectDetectorOptions options =
+                new ObjectDetectorOptions.Builder()
+                        .setDetectorMode(ObjectDetectorOptions.SINGLE_IMAGE_MODE)
+                        .enableMultipleObjects()
+                        .enableClassification()  // Optional
+                        .build();
+        this.objectDetector = ObjectDetection.getClient(options);
     }
 
     @Override
@@ -56,6 +71,9 @@ public class ImageViewerFragment extends Fragment {
         binding = FragmentImageViewerBinding.inflate(inflater, container, false);
         binding.buttonRecognizeText.setOnClickListener(v -> {
             recognizeText();
+        });
+        binding.buttonRecognizeObject.setOnClickListener(v -> {
+            recognizeObject();
         });
         return binding.getRoot();
     }
@@ -92,7 +110,7 @@ public class ImageViewerFragment extends Fragment {
                     markTextOnBitmap(text);
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(getActivity(), "Fail to recoginize the text", Toast.LENGTH_SHORT)
+                    Toast.makeText(getActivity(), "Fail to recognize the text", Toast.LENGTH_SHORT)
                             .show();
                 });
     }
@@ -113,6 +131,43 @@ public class ImageViewerFragment extends Fragment {
             String blockText = block.getText();
             Point[] blockCornerPoints = block.getCornerPoints();
             Rect blockFrame = block.getBoundingBox();
+            canvas.drawRect(blockFrame, p);
+        }
+
+        binding.imageView.setImageBitmap(null);
+        binding.imageView.setImageBitmap(displayedBitmap);
+    }
+
+    private void recognizeObject() {
+        InputImage inputImage = InputImage.fromBitmap(imageBitmap, 0);
+        objectDetector.process(inputImage).addOnSuccessListener(new OnSuccessListener<List<DetectedObject>>() {
+            @Override
+            public void onSuccess(List<DetectedObject> detectedObjects) {
+                markObjects(detectedObjects);
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                Toast.makeText(getActivity(), "Fail to recognize objects", Toast.LENGTH_SHORT)
+                        .show();
+            }
+        });
+    }
+
+    private void markObjects(List<DetectedObject> detectedObjects) {
+        displayedBitmap = imageBitmap.copy(Bitmap.Config.ARGB_8888, true);
+        Canvas canvas = new Canvas(displayedBitmap);
+
+        Paint p = new Paint();
+        p.setStyle(Paint.Style.FILL_AND_STROKE);
+        p.setAntiAlias(true);
+        p.setFilterBitmap(true);
+        p.setDither(true);
+        p.setColor(Color.RED);
+        p.setAlpha(120);
+
+        for (DetectedObject detectedObject : detectedObjects) {
+            Rect blockFrame = detectedObject.getBoundingBox();
             canvas.drawRect(blockFrame, p);
         }
 
